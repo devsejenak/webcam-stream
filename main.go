@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"webcam-stream/stream/config"
+	"webcam-stream/stream/detect"
 	"webcam-stream/stream/server"
 	"webcam-stream/stream/transcoder"
 	"webcam-stream/web"
@@ -23,7 +24,7 @@ func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 
 	if err := run(log); err != nil {
-		log.Error("gagal", "err", err)
+		log.Error("fatal", "err", err)
 		os.Exit(1)
 	}
 }
@@ -39,14 +40,29 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	srv, err := server.New(server.Options{
+	var watcher *detect.Watcher
+	if cfg.Detect.Enabled {
+		w, cleanup, err := setupDetection(cfg, sup.FFmpegPath(), log.With("component", "detect"))
+		if err != nil {
+			log.Error("detection disabled", "err", err)
+		} else {
+			defer cleanup()
+			watcher = w
+		}
+	}
+
+	opts := server.Options{
 		Listen:    cfg.Listen,
 		HLSDir:    cfg.HLSDir,
 		AuthToken: cfg.AuthToken,
 		Static:    web.Static(),
 		Status:    sup.Status,
 		Log:       log.With("component", "http"),
-	})
+	}
+	if watcher != nil {
+		opts.Detections = func() any { return watcher.Snapshot() }
+	}
+	srv, err := server.New(opts)
 	if err != nil {
 		return err
 	}
@@ -64,10 +80,47 @@ func run(log *slog.Logger) error {
 		defer wg.Done()
 		sup.Run(ctx)
 	}()
+	if watcher != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			watcher.Run(ctx)
+		}()
+	}
 
 	err = srv.Run(ctx)
-	stop()
+	stop() // if the server failed to start, stop ffmpeg and detection too
 	wg.Wait()
-	log.Info("selesai")
+	log.Info("stopped")
 	return err
+}
+
+func setupDetection(cfg *config.Config, ffmpeg string, log *slog.Logger) (*detect.Watcher, func(), error) {
+	d := cfg.Detect
+	if err := detect.Init(d.Library); err != nil {
+		return nil, nil, err
+	}
+	model, err := detect.NewYOLOX(d.Model, detect.Options{Threads: d.Threads})
+	if err != nil {
+		detect.Shutdown()
+		return nil, nil, err
+	}
+
+	w := detect.NewWatcher(model, detect.WatcherOptions{
+		HLSDir:     cfg.HLSDir,
+		Playlist:   transcoder.PlaylistName,
+		FFmpeg:     ffmpeg,
+		FPS:        d.FPS,
+		MinScore:   float32(d.MinScore),
+		AllClasses: d.AllClasses,
+		Log:        log,
+	})
+	inW, inH := model.InputSize()
+	log.Info("detection enabled", "model", d.Model, "input", fmt.Sprintf("%dx%d", inW, inH), "fps", d.FPS, "min_score", d.MinScore)
+
+	cleanup := func() {
+		model.Close()
+		detect.Shutdown()
+	}
+	return w, cleanup, nil
 }

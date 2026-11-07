@@ -19,12 +19,13 @@ type Server struct {
 }
 
 type Options struct {
-	Listen    string
-	HLSDir    string
-	AuthToken string
-	Static    fs.FS
-	Status    func() transcoder.Status
-	Log       *slog.Logger
+	Listen     string
+	HLSDir     string
+	AuthToken  string
+	Static     fs.FS
+	Status     func() transcoder.Status
+	Detections func() any
+	Log        *slog.Logger
 }
 
 func New(o Options) (*Server, error) {
@@ -62,6 +63,16 @@ func New(o Options) (*Server, error) {
 		json.NewEncoder(w).Encode(st)
 	})))
 
+	mux.Handle("GET /api/detections", auth.Require(false, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		if o.Detections == nil {
+			w.Write([]byte(`{"enabled":false}`))
+			return
+		}
+		json.NewEncoder(w).Encode(o.Detections())
+	})))
+
 	h := securityHeaders(logRequests(o.Log, mux))
 
 	return &Server{
@@ -78,7 +89,7 @@ func New(o Options) (*Server, error) {
 func (s *Server) Run(ctx context.Context) error {
 	errCh := make(chan error, 1)
 	go func() {
-		s.log.Info("HTTP server jalan", "addr", "http://"+s.http.Addr)
+		s.log.Info("HTTP server listening", "addr", "http://"+s.http.Addr)
 		if err := s.http.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -129,7 +140,7 @@ func logRequests(log *slog.Logger, next http.Handler) http.Handler {
 		next.ServeHTTP(rec, r)
 
 		level := slog.LevelInfo
-		if strings.HasPrefix(r.URL.Path, "/hls/") || r.URL.Path == "/healthz" {
+		if strings.HasPrefix(r.URL.Path, "/hls/") || r.URL.Path == "/healthz" || r.URL.Path == "/api/detections" {
 			level = slog.LevelDebug
 		}
 		log.Log(r.Context(), level, "request",

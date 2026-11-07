@@ -36,6 +36,8 @@ func New(cfg *config.Config, log *slog.Logger) (*Supervisor, error) {
 	return &Supervisor{cfg: cfg, ffmpeg: path, log: log}, nil
 }
 
+func (s *Supervisor) FFmpegPath() string { return s.ffmpeg }
+
 func resolveFFmpeg(explicit string) (string, error) {
 	name := "ffmpeg"
 	if explicit != "" {
@@ -94,10 +96,10 @@ func (s *Supervisor) Run(ctx context.Context) {
 
 func (s *Supervisor) runOnce(ctx context.Context) error {
 	if err := os.RemoveAll(s.cfg.HLSDir); err != nil {
-		return fmt.Errorf("hapus folder HLS: %w", err)
+		return fmt.Errorf("remove HLS dir: %w", err)
 	}
 	if err := os.MkdirAll(s.cfg.HLSDir, 0o755); err != nil {
-		return fmt.Errorf("buat folder HLS: %w", err)
+		return fmt.Errorf("create HLS dir: %w", err)
 	}
 
 	args := BuildArgs(s.cfg)

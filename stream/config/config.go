@@ -31,7 +31,19 @@ type Config struct {
 	HLSTime     int
 	HLSListSize int
 
+	Detect DetectConfig
+
 	AuthTokenGenerated bool
+}
+
+type DetectConfig struct {
+	Enabled    bool
+	Model      string
+	Library    string
+	FPS        float64
+	MinScore   float64
+	Threads    int
+	AllClasses bool
 }
 
 func Load() (*Config, error) {
@@ -63,6 +75,22 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	c.Detect = DetectConfig{
+		Enabled:    envBool("DETECT_ENABLED"),
+		Model:      env("DETECT_MODEL", filepath.Join("models", "yolox_nano.onnx")),
+		Library:    env("ONNXRUNTIME_PATH", defaultORTLib()),
+		AllClasses: envBool("DETECT_ALL_CLASSES"),
+	}
+	if c.Detect.FPS, err = envFloat("DETECT_FPS", 2); err != nil {
+		return nil, err
+	}
+	if c.Detect.MinScore, err = envFloat("DETECT_SCORE", 0.5); err != nil {
+		return nil, err
+	}
+	if c.Detect.Threads, err = envInt("DETECT_THREADS", 2); err != nil {
+		return nil, err
+	}
+
 	if c.AuthToken == "" {
 		b := make([]byte, 16)
 		if _, err := rand.Read(b); err != nil {
@@ -77,7 +105,7 @@ func Load() (*Config, error) {
 
 func (c *Config) validate() error {
 	switch c.Input {
-	case "dshow", "v4l2":
+	case "dshow", "v4l2", "file":
 		if c.Camera == "" {
 			return fmt.Errorf("CAMERA is required for INPUT=%s", c.Input)
 		}
@@ -87,6 +115,9 @@ func (c *Config) validate() error {
 	}
 	if c.Framerate <= 0 || c.HLSTime <= 0 || c.HLSListSize <= 0 {
 		return fmt.Errorf("FRAMERATE, HLS_TIME and HLS_LIST_SIZE must be > 0")
+	}
+	if c.Detect.Enabled && (c.Detect.FPS <= 0 || c.Detect.FPS > float64(c.Framerate)) {
+		return fmt.Errorf("DETECT_FPS must be between 0 and FRAMERATE")
 	}
 	if len(c.AuthToken) < 12 {
 		return fmt.Errorf("AUTH_TOKEN must be at least 12 characters")
@@ -103,6 +134,37 @@ func defaultInput() string {
 	default:
 		return "testsrc"
 	}
+}
+
+func defaultORTLib() string {
+	switch runtime.GOOS {
+	case "windows":
+		return filepath.Join("models", "onnxruntime.dll")
+	case "darwin":
+		return filepath.Join("models", "libonnxruntime.dylib")
+	default:
+		return filepath.Join("models", "libonnxruntime.so")
+	}
+}
+
+func envBool(key string) bool {
+	switch strings.ToLower(env(key, "")) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
+func envFloat(key string, def float64) (float64, error) {
+	v := env(key, "")
+	if v == "" {
+		return def, nil
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a number: %w", key, err)
+	}
+	return f, nil
 }
 
 func env(key, def string) string {
