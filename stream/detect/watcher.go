@@ -26,6 +26,8 @@ type WatcherOptions struct {
 	AllClasses bool    // report all classes, not only person
 	Keep       int     // number of segments to keep results for (default 30)
 	Log        *slog.Logger
+
+	OnResult func(segmentPath string, frames []FrameResult)
 }
 
 // Object is one detection, with the box normalized to 0..1 of the frame.
@@ -189,6 +191,9 @@ func (w *Watcher) poll(ctx context.Context) {
 		}
 		w.store(p.name, frames)
 		w.mu.Unlock()
+		if w.opts.OnResult != nil {
+			w.opts.OnResult(filepath.Join(w.opts.HLSDir, p.name), frames)
+		}
 	}
 }
 

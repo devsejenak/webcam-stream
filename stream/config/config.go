@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -32,6 +33,7 @@ type Config struct {
 	HLSListSize int
 
 	Detect DetectConfig
+	Alert  AlertConfig
 
 	AuthTokenGenerated bool
 }
@@ -44,6 +46,18 @@ type DetectConfig struct {
 	MinScore   float64
 	Threads    int
 	AllClasses bool
+}
+
+type AlertConfig struct {
+	TelegramToken    string
+	TelegramChatID   string
+	TelegramThreadID int
+	Cooldown         time.Duration
+	Photos           int
+}
+
+func (a AlertConfig) Enabled() bool {
+	return a.TelegramToken != "" && a.TelegramChatID != ""
 }
 
 func Load() (*Config, error) {
@@ -91,6 +105,21 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	c.Alert = AlertConfig{
+		TelegramToken:  env("TELEGRAM_BOT_TOKEN", ""),
+		TelegramChatID: env("TELEGRAM_CHAT_ID", ""),
+	}
+
+	if c.Alert.TelegramThreadID, err = envInt("TELEGRAM_THREAD_ID", 0); err != nil {
+		return nil, err
+	}
+	if c.Alert.Cooldown, err = envDuration("ALERT_COOLDOWN", 10*time.Minute); err != nil {
+		return nil, err
+	}
+	if c.Alert.Photos, err = envInt("ALERT_PHOTOS", 3); err != nil {
+		return nil, err
+	}
+
 	if c.AuthToken == "" {
 		b := make([]byte, 16)
 		if _, err := rand.Read(b); err != nil {
@@ -118,6 +147,14 @@ func (c *Config) validate() error {
 	}
 	if c.Detect.Enabled && (c.Detect.FPS <= 0 || c.Detect.FPS > float64(c.Framerate)) {
 		return fmt.Errorf("DETECT_FPS must be between 0 and FRAMERATE")
+	}
+	if c.Alert.Enabled() {
+		if c.Alert.Cooldown < 0 {
+			return fmt.Errorf("ALERT_COOLDOWN must not be negative")
+		}
+		if c.Alert.Photos < 1 || c.Alert.Photos > 10 {
+			return fmt.Errorf("ALERT_PHOTOS must be between 1 and 10")
+		}
 	}
 	if len(c.AuthToken) < 12 {
 		return fmt.Errorf("AUTH_TOKEN must be at least 12 characters")
@@ -165,6 +202,21 @@ func envFloat(key string, def float64) (float64, error) {
 		return 0, fmt.Errorf("%s must be a number: %w", key, err)
 	}
 	return f, nil
+}
+
+func envDuration(key string, def time.Duration) (time.Duration, error) {
+	v := env(key, "")
+	if v == "" {
+		return def, nil
+	}
+	if n, err := strconv.ParseFloat(v, 64); err == nil {
+		return time.Duration(n * float64(time.Minute)), nil
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a duration like 10m or 30s: %w", key, err)
+	}
+	return d, nil
 }
 
 func env(key, def string) string {

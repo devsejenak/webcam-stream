@@ -9,8 +9,10 @@ import (
 	"sync"
 	"syscall"
 
+	"webcam-to-cctv/stream/alert"
 	"webcam-to-cctv/stream/config"
 	"webcam-to-cctv/stream/detect"
+	"webcam-to-cctv/stream/notify"
 	"webcam-to-cctv/stream/server"
 	"webcam-to-cctv/stream/transcoder"
 	"webcam-to-cctv/web"
@@ -40,15 +42,36 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	var alerter *alert.Alerter
+	if cfg.Alert.Enabled() {
+		if !cfg.Detect.Enabled {
+			log.Warn("Telegram alerts configured but DETECT_ENABLED is false; alerts disabled")
+		} else {
+			a := cfg.Alert
+			alerter = alert.New(
+				notify.NewTelegram(a.TelegramToken, a.TelegramChatID, a.TelegramThreadID),
+				alert.Options{
+					FFmpeg:   sup.FFmpegPath(),
+					Cooldown: a.Cooldown,
+					Photos:   a.Photos,
+					Log:      log.With("component", "alert"),
+				})
+			log.Info("telegram alerts enabled", "cooldown", a.Cooldown, "photos", a.Photos)
+		}
+	}
+
 	var watcher *detect.Watcher
 	if cfg.Detect.Enabled {
-		w, cleanup, err := setupDetection(cfg, sup.FFmpegPath(), log.With("component", "detect"))
+		w, cleanup, err := setupDetection(cfg, sup.FFmpegPath(), alerter, log.With("component", "detect"))
 		if err != nil {
 			log.Error("detection disabled", "err", err)
 		} else {
 			defer cleanup()
 			watcher = w
 		}
+	}
+	if watcher == nil {
+		alerter = nil
 	}
 
 	opts := server.Options{
@@ -87,6 +110,13 @@ func run(log *slog.Logger) error {
 			watcher.Run(ctx)
 		}()
 	}
+	if alerter != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			alerter.Run(ctx)
+		}()
+	}
 
 	err = srv.Run(ctx)
 	stop() // if the server failed to start, stop ffmpeg and detection too
@@ -95,7 +125,7 @@ func run(log *slog.Logger) error {
 	return err
 }
 
-func setupDetection(cfg *config.Config, ffmpeg string, log *slog.Logger) (*detect.Watcher, func(), error) {
+func setupDetection(cfg *config.Config, ffmpeg string, alerter *alert.Alerter, log *slog.Logger) (*detect.Watcher, func(), error) {
 	d := cfg.Detect
 	if err := detect.Init(d.Library); err != nil {
 		return nil, nil, err
@@ -106,7 +136,7 @@ func setupDetection(cfg *config.Config, ffmpeg string, log *slog.Logger) (*detec
 		return nil, nil, err
 	}
 
-	w := detect.NewWatcher(model, detect.WatcherOptions{
+	opts := detect.WatcherOptions{
 		HLSDir:     cfg.HLSDir,
 		Playlist:   transcoder.PlaylistName,
 		FFmpeg:     ffmpeg,
@@ -114,7 +144,11 @@ func setupDetection(cfg *config.Config, ffmpeg string, log *slog.Logger) (*detec
 		MinScore:   float32(d.MinScore),
 		AllClasses: d.AllClasses,
 		Log:        log,
-	})
+	}
+	if alerter != nil {
+		opts.OnResult = alerter.OnResult
+	}
+	w := detect.NewWatcher(model, opts)
 	inW, inH := model.InputSize()
 	log.Info("detection enabled", "model", d.Model, "input", fmt.Sprintf("%dx%d", inW, inH), "fps", d.FPS, "min_score", d.MinScore)
 

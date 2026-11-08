@@ -71,7 +71,20 @@ Everything is configured through environment variables or `.env`. See `.env.exam
 | `DETECT_SCORE` | `0.5` | Minimum confidence |
 | `DETECT_THREADS` | `2` | CPU threads for ONNX Runtime |
 | `DETECT_ALL_CLASSES` | `false` | Report all COCO classes, not only person |
+| `TELEGRAM_BOT_TOKEN` | – | Bot token from @BotFather |
+| `TELEGRAM_CHAT_ID` | – | Chat, group, or channel to send alerts to |
+| `TELEGRAM_THREAD_ID` | – | Forum topic id in a group with topics |
+| `ALERT_COOLDOWN` | `10m` | Minimum time between alerts (`30s`, `10m`, `1h`; a plain number is minutes) |
+| `ALERT_PHOTOS` | `3` | Snapshots per alert (1–10), sent as an album |
 | `DEBUG` | – | Set to `1` for verbose logging |
+
+## Telegram alerts
+
+With detection enabled, set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to get a
+Telegram message with full-resolution snapshots (person boxes drawn in red)
+when a person is detected. After an alert, further detections are ignored for
+`ALERT_COOLDOWN`; if sending fails, it is retried on the next detection after
+one minute.
 
 ## Endpoints
 
