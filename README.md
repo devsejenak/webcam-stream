@@ -133,3 +133,7 @@ All routes except `/login` require authentication.
 Person detection uses [YOLOX](https://github.com/Megvii-BaseDetection/YOLOX)
 by Megvii (Apache-2.0), run through [ONNX Runtime](https://github.com/microsoft/onnxruntime)
 via [onnxruntime_go](https://github.com/yalue/onnxruntime_go).
+
+## License
+
+[MIT](LICENSE). Third-party components keep their own licenses; see [models/THIRD_PARTY_NOTICES.md](models/THIRD_PARTY_NOTICES.md).
