@@ -8,7 +8,6 @@
   winget install ffmpeg
   ffmpeg -version
   ```
-- Camera permission: **Settings → Privacy & security → Camera → Let desktop apps access your camera** must be enabled
 - For person detection: a C compiler for cgo (on Windows, MinGW-w64, e.g. via MSYS2) with `CGO_ENABLED=1`
   1. Install MSYS2:
      ```powershell
@@ -23,6 +22,12 @@
      gcc --version
      go env -w CGO_ENABLED=1
      ```
+- For person detection: the ONNX Runtime library, downloaded manually from the
+  [ONNX Runtime v1.31.0 release](https://github.com/microsoft/onnxruntime/releases#release-v1.31.0)
+  1. Download the archive for your platform. For Windows x64:
+     [onnxruntime-win-x64-1.31.0.zip](https://github.com/microsoft/onnxruntime/releases/download/v1.31.0/onnxruntime-win-x64-1.31.0.zip)
+  2. Extract it and copy `lib/onnxruntime.dll` into the project's `models/` folder, so the file is at `models/onnxruntime.dll`.
+
 ## Running
 
 ```powershell
@@ -85,6 +90,29 @@ Telegram message with full-resolution snapshots (person boxes drawn in red)
 when a person is detected. After an alert, further detections are ignored for
 `ALERT_COOLDOWN`; if sending fails, it is retried on the next detection after
 one minute.
+
+## Public access
+
+Keep `LISTEN=127.0.0.1:8080` and expose the app with a tunnel so you can check the camera from any other device. Because the page becomes public, set a long random
+`AUTH_TOKEN`.
+
+1. Install a tunnel tool on the laptop (pick one):
+   ```powershell
+   winget install tailscale.tailscale             # Tailscale, then sign in once
+   winget install --id Cloudflare.cloudflared     # Cloudflare, no account needed
+   ```
+2. Start the app (`go run main.go`), then start the tunnel in another terminal:
+   ```powershell
+   tailscale funnel 8080                           # Tailscale
+   cloudflared tunnel --url http://127.0.0.1:8080  # Cloudflare
+   ```
+3. Open the HTTPS URL the tunnel prints on your other device and log in with your token.
+
+| | Tailscale Funnel | Cloudflare quick tunnel |
+|---|---|---|
+| URL | `https://<laptop-name>.<tailnet>.ts.net`, stays the same | `https://<random>.trycloudflare.com`, changes on every restart |
+| Account | Tailscale account; the first run prints a link to enable Funnel | None |
+| Stop | `Ctrl+C` | `Ctrl+C` |
 
 ## Endpoints
 
