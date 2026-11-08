@@ -1,5 +1,15 @@
 # webcam-to-cctv
 
+Self-hosted webcam CCTV in Go: live HLS viewer, on-device person detection
+(YOLOX + ONNX Runtime), and Telegram snapshot alerts.
+
+- **Live stream**: FFmpeg turns your webcam into an HLS stream you can watch in the browser, protected by a login token.
+- **Person detection**: YOLOX runs locally on the CPU, so no video leaves your machine.
+- **Telegram alerts**: get full-resolution snapshots when a person is detected, with a configurable cooldown to prevent spam.
+- **Access from anywhere**: works with Tailscale Funnel or Cloudflare Tunnel.
+
+Prebuilt Windows releases are on the [Releases](https://github.com/devsejenak/webcam-to-cctv/releases) page.
+
 ## Prerequisites
 
 - [Go](https://go.dev/dl/) 1.22+
