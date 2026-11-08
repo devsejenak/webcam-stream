@@ -9,11 +9,11 @@ import (
 	"sync"
 	"syscall"
 
-	"webcam-stream/stream/config"
-	"webcam-stream/stream/detect"
-	"webcam-stream/stream/server"
-	"webcam-stream/stream/transcoder"
-	"webcam-stream/web"
+	"webcam-to-cctv/stream/config"
+	"webcam-to-cctv/stream/detect"
+	"webcam-to-cctv/stream/server"
+	"webcam-to-cctv/stream/transcoder"
+	"webcam-to-cctv/web"
 )
 
 func main() {

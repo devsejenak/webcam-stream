@@ -1,4 +1,4 @@
-module webcam-stream
+module webcam-to-cctv
 
 go 1.22
 

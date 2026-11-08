@@ -61,7 +61,7 @@ func Load() (*Config, error) {
 		VideoSize:  env("VIDEO_SIZE", "1280x720"),
 		Encoder:    env("ENCODER", "libx264"),
 		Bitrate:    env("BITRATE", "2500k"),
-		HLSDir:     env("HLS_DIR", filepath.Join(os.TempDir(), "webcam-stream", "hls")),
+		HLSDir:     env("HLS_DIR", filepath.Join(os.TempDir(), "webcam-to-cctv", "hls")),
 	}
 
 	var err error

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"webcam-stream/stream/config"
+	"webcam-to-cctv/stream/config"
 )
 
 const (

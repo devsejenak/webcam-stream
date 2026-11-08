@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"webcam-stream/stream/transcoder"
+	"webcam-to-cctv/stream/transcoder"
 )
 
 type Server struct {

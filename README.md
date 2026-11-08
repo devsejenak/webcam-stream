@@ -1,4 +1,4 @@
-# webcam-stream
+# webcam-to-cctv
 
 ## Prerequisites
 
@@ -26,15 +26,15 @@
 ## Running
 
 ```powershell
-git clone https://github.com/devsejenak/webcam-stream.git
-cd webcam-stream
+git clone https://github.com/devsejenak/webcam-to-cctv.git
+cd webcam-to-cctv
 copy .env.example .env      # then fill in AUTH_TOKEN and CAMERA
 go run main.go
 ```
 
 Open http://localhost:8080 and enter your token. If `AUTH_TOKEN` is empty, a random token is printed to the terminal.
 
-To build a binary: `go build -o webcam-stream.exe main.go`.
+To build a binary: `go build -o webcam-to-cctv.exe main.go`.
 
 ### Finding the camera name and modes
 
@@ -62,7 +62,7 @@ Everything is configured through environment variables or `.env`. See `.env.exam
 | `BITRATE` | `2500k` | Maximum video bitrate |
 | `HLS_TIME` | `2` | Segment duration (seconds) |
 | `HLS_LIST_SIZE` | `6` | Number of segments in the playlist |
-| `HLS_DIR` | `%TEMP%\webcam-stream\hls` | Segment folder |
+| `HLS_DIR` | `%TEMP%\webcam-to-cctv\hls` | Segment folder |
 | `FFMPEG_PATH` | `ffmpeg` | Path to ffmpeg if it is not in PATH |
 | `DETECT_ENABLED` | `false` | Enable person detection |
 | `DETECT_MODEL` | `models/yolox_nano.onnx` | YOLOX ONNX model |

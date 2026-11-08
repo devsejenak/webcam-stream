@@ -19,7 +19,7 @@ type Auth struct {
 
 func NewAuth(token string) *Auth {
 	mac := hmac.New(sha256.New, []byte(token))
-	mac.Write([]byte("webcam-stream-session-v1"))
+	mac.Write([]byte("webcam-to-cctv-session-v1"))
 	return &Auth{token: token, session: hex.EncodeToString(mac.Sum(nil))}
 }
 

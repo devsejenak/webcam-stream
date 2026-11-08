@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"webcam-stream/stream/config"
+	"webcam-to-cctv/stream/config"
 )
 
 type Supervisor struct {
